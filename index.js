@@ -8,6 +8,7 @@ const noteNotionDatabase = process.env.NOTIFY_DATABASE;
 const app = express();
 const { User } = require("./user");
 const { getQaNotionData, getNoteNotionData } = require("./notion");
+const { response } = require("express");
 
 let userDatabase = [];
 let hasNotifyNote = [];
@@ -340,9 +341,11 @@ app.get("/pushNote", async (req, res) => {
         hasNotifyNote.push(data[0]);
       }
     }
+    return response;
   } else {
     res.send("No note is enable");
     console.log("No note is enable");
+    return Promise.resolve(null);
   }
 });
 
