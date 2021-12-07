@@ -325,6 +325,7 @@ app.get("/pushNote", async (req, res) => {
 
   if (data.length !== 0) {
     for (let i in data) {
+      let response;
       const checkNotify = hasNotifyNote.indexOf(data[i]);
       if (checkNotify == -1) {
         response = await client.broadcast(message(data[i]));
