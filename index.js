@@ -325,7 +325,6 @@ app.get("/pushNote", async (req, res) => {
 
   if (data.length !== 0) {
     for (let i in data) {
-      let response;
       const checkNotify = hasNotifyNote.indexOf(data[i]);
       if (checkNotify == -1) {
         response = await client.broadcast(message(data[i]));
@@ -343,11 +342,9 @@ app.get("/pushNote", async (req, res) => {
         hasNotifyNote.push(data[0]);
       }
     }
-    return response;
   } else {
     res.send("No note is enable");
     console.log("No note is enable");
-    return Promise.resolve(null);
   }
 });
 
