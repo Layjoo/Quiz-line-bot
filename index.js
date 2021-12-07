@@ -343,7 +343,7 @@ app.get("/pushNote", async (req, res) => {
       }
     }
   } else {
-    res.send("No note is enable");
+    res.send({"reply":"No data in database"});
     console.log("No note is enable");
   }
 });
