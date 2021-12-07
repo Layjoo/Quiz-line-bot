@@ -338,6 +338,7 @@ app.get("/pushNote", async (req, res) => {
         console.log("Restart notify");
         hasNotifyNote = [];
         response = await client.broadcast(message(data[0]));
+        res.send(response);
         console.log("Push notify");
         hasNotifyNote.push(data[0]);
       }
