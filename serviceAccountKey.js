@@ -1,13 +1,13 @@
 require("dotenv").config();
 const privateKeyId = process.env.PRIVATE_KEY_ID;
-const privateKEY = process.env.PRIVATE_KEY;
+const {privateKey}= JSON.parse(process.env.PRIVATE_KEY);
 const clientID = process.env.CLIENT_ID;
 
 const serviceAccountKey = {
   type: "service_account",
   project_id: "layjoo-line-bot",
   private_key_id: privateKeyId,
-  private_key: privateKEY,
+  private_key: privateKey,
   client_email:
     "firebase-adminsdk-8kaug@layjoo-line-bot.iam.gserviceaccount.com",
   client_id: clientID,
