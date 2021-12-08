@@ -165,6 +165,16 @@ app.post("/callback", line.middleware(config), (req, res) => {
 
 const checkReplyAnswer = async (event, currentUser) => {
   const isQuestioning = currentUser.status.isQuestioning;
+  
+  //if status is question
+  if (event.postback.data == "retry") {
+    currentUser.status.isQuestioning = true;
+    await updateUser(currentUser.userId, currentUser);
+    console.log("เริ่มทำข้อสอบ");
+    const response = sendQuestion(currentUser, event.replyToken);
+    return response;
+  }
+
   //if status is question
   if (isQuestioning) {
     if (
@@ -182,12 +192,6 @@ const checkReplyAnswer = async (event, currentUser) => {
       return response;
     } else if (event.postback.data == "next") {
       const response = sendQuestion(currentUser, event.replyToken, "ข้อต่อไป");
-      return response;
-    } else if (event.postback.data == "retry") {
-      console.log("เริ่มทำข้อสอบใหม่");
-      currentUser.status.isQuestioning = true;
-      await updateUser(currentUser.userId, currentUser);
-      const response = sendQuestion(currentUser, event.replyToken);
       return response;
     }
 
