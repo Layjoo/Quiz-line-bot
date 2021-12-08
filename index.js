@@ -185,6 +185,8 @@ const checkReplyAnswer = async (event, currentUser) => {
       return response;
     } else if (event.postback.data == "retry") {
       console.log("เริ่มทำข้อสอบใหม่");
+      currentUser.status.isQuestioning = true;
+      await updateUser(currentUser.userId, currentUser);
       const response = sendQuestion(currentUser, event.replyToken);
       return response;
     }
