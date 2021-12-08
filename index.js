@@ -283,9 +283,7 @@ const sendQuestion = async (currentUser, replyToken) => {
       replyToken,
       lastQuestionReply("สิ้นสุดการทำข้อสอบแล้ว")
     );
-    currentUser.currentQuestion = false;
-    currentUser.currentAnswer = false;
-    await updateUser(currentUser.userId, currentUser);
+    await deleteUser(currentUser.userId);
     return response;
   }
 
