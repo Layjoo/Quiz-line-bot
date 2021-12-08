@@ -165,16 +165,6 @@ app.post("/callback", line.middleware(config), (req, res) => {
 
 const checkReplyAnswer = async (event, currentUser) => {
   const isQuestioning = currentUser.status.isQuestioning;
-  
-  //if status is question
-  if (event.postback.data == "retry") {
-    currentUser.status.isQuestioning = true;
-    await updateUser(currentUser.userId, currentUser);
-    console.log("เริ่มทำข้อสอบ");
-    const response = sendQuestion(currentUser, event.replyToken);
-    return response;
-  }
-
   //if status is question
   if (isQuestioning) {
     if (
@@ -287,7 +277,7 @@ const sendQuestion = async (currentUser, replyToken) => {
   if (currentIndex == data.length - 1) {
     const response = await client.replyMessage(
       replyToken,
-      lastQuestionReply("สิ้นสุดการทำข้อสอบแล้ว")
+      message("สิ้นสุดการทำข้อสอบแล้ว")
     );
     await deleteUser(currentUser.userId);
     return response;
