@@ -7,6 +7,7 @@ const createUser = (userId) => {
     currentQuestion: false,
     currentAnswer: false,
     qaDatabase: false,
+    more: false
   }
 }
 

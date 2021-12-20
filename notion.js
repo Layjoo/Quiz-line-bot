@@ -32,6 +32,7 @@ const getQaNotionData = async (database) => {
     data.push({
       question: results[i].properties.question.rich_text[0].plain_text,
       answer: results[i].properties.answer.rich_text[0].plain_text,
+      more: results[i].properties.more.rich_text[0] ? results[i].properties.more.rich_text[0].plain_text : []
     });
   }
   return data;

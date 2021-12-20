@@ -1,156 +1,146 @@
 require("dotenv").config();
-const line = require("@line/bot-sdk");
-const express = require("express");
 const qaNotionDatabase01 = process.env.QA_DATABASE_01;
 const qaNotionDatabase02 = process.env.QA_DATABASE_02;
 const qaNotionDatabase03 = process.env.QA_DATABASE_03;
 const noteNotionDatabase = process.env.NOTIFY_DATABASE;
+const line = require("@line/bot-sdk");
+const express = require("express");
 const app = express();
-const { createUser } = require("./user");
-const { getQaNotionData, getNoteNotionData } = require("./notion");
-const { getUser, updateUser, deleteUser, getHasNotify, updateNotify } = require("./userDatabase");
+const {
+  createUser
+} = require("./user");
+const {
+  getQaNotionData,
+  getNoteNotionData
+} = require("./notion");
+const {
+  getUser,
+  updateUser,
+  deleteUser,
+  getHasNotify,
+  updateNotify,
+} = require("./userDatabase");
+const {
+  questionReply,
+  nextQuestionReply,
+  message,
+  moreMessage
+} = require("./lineMessage");
 
+//line setting
 const config = {
   channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN,
   channelSecret: process.env.CHANNEL_SECRET,
 };
 const client = new line.Client(config);
 
-const questionReply = (displayText) => {
-  return {
-    type: "text",
-    text: displayText,
-    quickReply: {
-      items: [
-        {
-          type: "action",
-          action: {
-            type: "postback",
-            label: "ข้อ 1",
-            data: "1",
-            displayText: "ข้อ 1",
-          },
-        },
-        {
-          type: "action",
-          action: {
-            type: "postback",
-            label: "ข้อ 2",
-            data: "2",
-            displayText: "ข้อ 2",
-          },
-        },
-        {
-          type: "action",
-          action: {
-            type: "postback",
-            label: "ข้อ 3",
-            data: "3",
-            displayText: "ข้อ 3",
-          },
-        },
-        {
-          type: "action",
-          action: {
-            type: "postback",
-            label: "ข้อ 4",
-            data: "4",
-            displayText: "ข้อ 4",
-          },
-        },
-        {
-          type: "action",
-          action: {
-            type: "postback",
-            label: "ข้อ 5",
-            data: "5",
-            displayText: "ข้อ 5",
-          },
-        },
-        {
-          type: "action",
-          action: {
-            type: "postback",
-            label: "เลิกทำข้อสอบ",
-            data: "exit",
-            displayText: "เลิกทำข้อสอบ",
-          },
-        },
-      ],
-    },
-  };
-};
-
-const nextQuestionReply = (displayText) => {
-  return {
-    type: "text",
-    text: displayText,
-    quickReply: {
-      items: [
-        {
-          type: "action",
-          action: {
-            type: "postback",
-            label: "ข้อถัดไป",
-            data: "next",
-            displayText: "ข้อถัดไป",
-          },
-        },
-        {
-          type: "action",
-          action: {
-            type: "postback",
-            label: "เลิกทำข้อสอบ",
-            data: "exit",
-            displayText: "เลิกทำข้อสอบ",
-          },
-        },
-      ],
-    },
-  };
-};
-
-const lastQuestionReply = (displayText) => {
-  return {
-    type: "text",
-    text: displayText,
-    quickReply: {
-      items: [
-        {
-          type: "action",
-          action: {
-            type: "postback",
-            label: "เลิกทำข้อสอบ",
-            data: "exit",
-            displayText: "เลิกทำข้อสอบ",
-          },
-        },
-        {
-          type: "action",
-          action: {
-            type: "postback",
-            label: "ทำข้อสอบอีกครั้ง",
-            data: "retry",
-            displayText: "ทำข้อสอบอีกครั้ง",
-          },
-        },
-      ],
-    },
-  };
-};
 
 const checkAnswer = (userAnswer, correctAnswer) => {
   if (userAnswer == correctAnswer) {
     return "ตอบถูก👍🏻";
   }
-  return "ตอบผิด❌";
+  return `ตอบผิด❌ ข้อที่ถูกคือข้อ ${correctAnswer}`;
 };
 
-const message = (message) => {
-  return {
-    type: "text",
-    text: message,
+const checkReplyAnswer = async (event, currentUser) => {
+  const isQuestioning = currentUser.status.isQuestioning;
+  const hadMore = currentUser.more;
+  const reply = event.postback.data;
+  //if status is question
+  if (isQuestioning) {
+
+    if (reply == "next") {
+      const response = sendQuestion(currentUser, event.replyToken, "ข้อต่อไป");
+      return response;
+    } else if (reply == "exit") {
+      await deleteUser(currentUser.userId);
+      console.log("เลิกทำข้อสอบแล้ว");
+      const response = await client.replyMessage(
+        event.replyToken,
+        message("เลิกทำข้อสอบแล้ว")
+      );
+      return response;
+
+    } else if (reply == "more") {
+      console.log("ข้อมูลเพิ่มเติม");
+      const response = await client.replyMessage(
+        event.replyToken,
+        moreMessage(hadMore)
+      );
+      return response;
+    } else {
+      //send answer 
+      const answer = currentUser.currentAnswer;
+      const replyAnswer = checkAnswer(reply, answer);
+      const response = await client.replyMessage(
+        event.replyToken,
+        nextQuestionReply(replyAnswer, hadMore)
+      );
+      return response;
+    }
   };
+  return Promise.resolve(null);
+}
+
+const sendQuestion = async (currentUser, replyToken) => {
+  const question = currentUser.currentQuestion;
+  const database = currentUser.qaDatabase;
+  const data = await getQaNotionData(database);
+  const currentIndex = data.findIndex((data) => data.question == question);
+
+  //no data in notion
+  if (data.length == 0) {
+    await deleteUser(currentUser.userId);
+    return client.replyMessage(replyToken, message("ไม่มีข้อสอบในระบบ"));
+  }
+
+  //not first time, send next question
+  if (question !== false && currentIndex !== data.length - 1) {
+    const currentQuestion = data[currentIndex + 1].question;
+    const currentAnswer = data[currentIndex + 1].answer;
+    const more = data[currentIndex + 1].more;
+    const response = await client.replyMessage(
+      replyToken,
+      questionReply(currentQuestion)
+    );
+    console.log("Question have send");
+    currentUser.currentQuestion = currentQuestion;
+    currentUser.currentAnswer = currentAnswer;
+    currentUser.more = more;
+    await updateUser(currentUser.userId, currentUser);
+    console.log(
+      `question: ${currentUser.currentQuestion}\nanswer: ${currentUser.currentAnswer}`
+    );
+    return response;
+  }
+
+  //last question in notion database
+  if (currentIndex == data.length - 1) {
+    const response = await client.replyMessage(
+      replyToken,
+      message("สิ้นสุดการทำข้อสอบแล้ว")
+    );
+    await deleteUser(currentUser.userId);
+    return response;
+  }
+
+  //first time exam
+  const currentQuestion = data[0].question;
+  const currentAnswer = data[0].answer;
+  const more = data[0].more;
+  const response = await client.replyMessage(
+    replyToken,
+    questionReply(currentQuestion)
+  );
+  console.log("Question have send");
+  currentUser.currentQuestion = currentQuestion;
+  currentUser.currentAnswer = currentAnswer;
+  currentUser.more = more;
+  await updateUser(currentUser.userId, currentUser);
+  console.log(
+    `question: ${currentUser.currentQuestion}\nanswer: ${currentUser.currentAnswer}`
+  );
+  return response;
 };
 
 //web hook, get event when user do somthing with bot
@@ -163,49 +153,12 @@ app.post("/callback", line.middleware(config), (req, res) => {
     });
 });
 
-const checkReplyAnswer = async (event, currentUser) => {
-  const isQuestioning = currentUser.status.isQuestioning;
-  //if status is question
-  if (isQuestioning) {
-    if (
-      //for any answer 1-5
-      event.postback.data !== "exit" &&
-      event.postback.data !== "next" &&
-      event.postback.data !== "retry"
-    ) {
-      const answer = currentUser.currentAnswer;
-      const replyAnswer = checkAnswer(event.postback.data, answer);
-      const response = await client.replyMessage(
-        event.replyToken,
-        nextQuestionReply(replyAnswer)
-      );
-      return response;
-    } else if (event.postback.data == "next") {
-      const response = sendQuestion(currentUser, event.replyToken, "ข้อต่อไป");
-      return response;
-    }
-
-    await deleteUser(currentUser.userId);
-    console.log("เลิกทำข้อสอบแล้ว");
-    const response = await client.replyMessage(
-      event.replyToken,
-      message("เลิกทำข้อสอบแล้ว")
-    );
-    return response;
-  } else {
-    return Promise.resolve(null);
-  }
-};
-
-// event handler if user interaction with bot
+//event handler if user interaction with bot
 async function handleEvent(event) {
-  console.log(event);
-
   //check if user is in database or not.
   let currentUser;
   const user = await getUser(event.source.userId);
   currentUser = user || createUser(event.source.userId);
-  console.log(currentUser);
 
   //check if event is postback message for question.
   if (event.type !== "message" || event.message.type !== "text") {
@@ -215,7 +168,9 @@ async function handleEvent(event) {
       /(?<=ข้อสอบ Comprehensive )\d\d/
     )[0];
 
-    switch (qaType) {
+    switch (
+      qaType //choose database depend on user type
+    ) {
       case "01":
         currentUser.qaDatabase = qaNotionDatabase01;
         break;
@@ -227,6 +182,7 @@ async function handleEvent(event) {
         break;
     }
 
+    //first time exam
     if (!currentUser.status.isQuestioning) {
       currentUser.status.isQuestioning = true;
       await updateUser(currentUser.userId, currentUser);
@@ -235,76 +191,23 @@ async function handleEvent(event) {
       return response;
     }
 
-    //if re-type -> retry exam agian
+    //if user retyping exam, then reset the exam
     currentUser.currentQuestion = false;
     currentUser.currentAnswer = false;
     const response = sendQuestion(currentUser, event.replyToken);
     return response;
   }
 
-  //auto text message
+  //if note postback message, send auto text message
   return client.replyMessage(event.replyToken, message(event.message.text));
 }
 
-const sendQuestion = async (currentUser, replyToken) => {
-  const question = currentUser.currentQuestion;
-  const database = currentUser.qaDatabase;
-  const data = await getQaNotionData(database);
-  const currentIndex = data.findIndex((data) => data.question == question);
-
-  if (data.length == 0) {
-    await deleteUser(currentUser.userId);
-    return client.replyMessage(replyToken, message("ไม่มีข้อสอบในระบบ"));
-  }
-
-  if (question !== false && currentIndex !== data.length - 1) {
-    const currentQuestion = data[currentIndex + 1].question;
-    const currentAnswer = data[currentIndex + 1].answer;
-    const response = await client.replyMessage(
-      replyToken,
-      questionReply(currentQuestion)
-    );
-    console.log("Question have send");
-    currentUser.currentQuestion = currentQuestion;
-    currentUser.currentAnswer = currentAnswer;
-    await updateUser(currentUser.userId, currentUser);
-    console.log(
-      `question: ${currentUser.currentQuestion}\nanswer: ${currentUser.currentAnswer}`
-    );
-    return response;
-  }
-
-  if (currentIndex == data.length - 1) {
-    const response = await client.replyMessage(
-      replyToken,
-      message("สิ้นสุดการทำข้อสอบแล้ว")
-    );
-    await deleteUser(currentUser.userId);
-    return response;
-  }
-
-  //firt time after type "ข้อสอบ"
-  const currentQuestion = data[0].question;
-  const currentAnswer = data[0].answer;
-  const response = await client.replyMessage(
-    replyToken,
-    questionReply(currentQuestion)
-  );
-  console.log("Question have send");
-  currentUser.currentQuestion = currentQuestion;
-  currentUser.currentAnswer = currentAnswer;
-  await updateUser(currentUser.userId, currentUser);
-  console.log(
-    `question: ${currentUser.currentQuestion}\nanswer: ${currentUser.currentAnswer}`
-  );
-  return response;
-};
-
+//auto push note 
 app.get("/pushNote", async (req, res) => {
   const data = await getNoteNotionData(noteNotionDatabase);
   const getDocument = await getHasNotify();
   let hasNotifyNote = getDocument.hasNotifyNote;
-  console.log(hasNotifyNote)
+  console.log(hasNotifyNote);
 
   if (data.length !== 0) {
     for (let i in data) {
@@ -313,7 +216,9 @@ app.get("/pushNote", async (req, res) => {
         const response = await client.broadcast(message(data[i]));
         console.log("Push notify");
         hasNotifyNote.push(data[i]);
-        await updateNotify({hasNotifyNote});
+        await updateNotify({
+          hasNotifyNote
+        });
         res.send(response);
         break;
       }
@@ -323,14 +228,20 @@ app.get("/pushNote", async (req, res) => {
         const response = await client.broadcast(message(data[0]));
         console.log("Push notify");
         hasNotifyNote.push(data[0]);
-        await updateNotify({hasNotifyNote});
+        await updateNotify({
+          hasNotifyNote
+        });
         res.send(response);
       }
     }
   } else {
     hasNotifyNote = [];
-    await updateNotify({hasNotifyNote});
-    res.send({ reply: "No data in database" });
+    await updateNotify({
+      hasNotifyNote
+    });
+    res.send({
+      reply: "No data in database"
+    });
     console.log("No note is enable");
   }
 });
