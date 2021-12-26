@@ -11,5 +11,5 @@
 - You can add more information that will appear after answer is sent by bot (such as infomation about question or source)
 
 ## Quiz database setting
-Setting Question and answer in Notion database
+Setting Question and answer in Notion database.
 <a href="https://imgur.com/0s2d0DO"><img src="https://i.imgur.com/0s2d0DO.png" title="source: imgur.com" width="800"/></a>
